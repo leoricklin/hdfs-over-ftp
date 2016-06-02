@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="big5" ?>
+
+<project name="hdffsoverftp" default="jar" basedir=".">
+<description>HDFS over FTP</description>
+   <tstamp/>
+   <!-- Set global properties -->
+   <property name="project.fullname" value="HDFS over FTP" />
+   <property name="project.aliasname" value="hdfs-over-ftp-cht-dist" />
+   <property name="project.ver" value="4.3.0" />
+   <property name="project.author" value="" />
+   <property name="project.org" value="CHTTL" />
+   <property name="dir.root" value="." />
+   <property name="dir.lib" value="lib" />
+   <property name="dir.lib.cdh" value="${dir.lib}/lib.cdh430" />
+   <property name="dir.src" value="src" />
+   <property name="dir.src.resource" value="${dir.src}/main/resources" />
+   <property name="dir.src.java" value="${dir.src}/main/java" />
+   <property name="dir.build" value="build" />
+   <property name="dir.build.bin" value="${dir.build}/classes" />
+   <property name="dir.build.dist" value="${dir.build}/dist" />
+   <property name="dir.build.zip" value="${dir.build}/all4zip" />
+   <property name="file.jar" value="${project.aliasname}-${project.ver}.jar" />
+   <property name="file.zip" value="${project.aliasname}-${project.ver}.zip" />
+   <!-- Define classpath -->
+   <path id="classpath.project">
+      <pathelement path="${dir.build.bin}"/>
+      <fileset dir="${dir.lib}">
+         <include name="**/*.jar"/>
+      </fileset>
+      <fileset dir="${dir.lib.cdh}">
+         <include name="**/*.jar"/>
+      </fileset>
+   </path>
+
+   <target name="clean">
+      <delete dir="${dir.build}"/>
+   </target>
+
+   <target name="init" description="initialize">
+      <mkdir dir="${dir.build}"/>
+      <mkdir dir="${dir.build.bin}"/>
+      <mkdir dir="${dir.build.dist}"/>
+      <mkdir dir="${dir.build.zip}"/>
+   </target>
+  
+   <target name="compile" depends="init">
+      <copy todir="${dir.build.bin}">
+         <fileset dir="${dir.src.resource}">
+            <include name="**/*.xml"/>
+            <include name="**/*.properties"/>
+         </fileset>
+      </copy>
+      <javac srcdir="${dir.src.java}" destdir="${dir.build.bin}">
+         <classpath refid="classpath.project"/>
+      </javac>
+   </target>  
+
+   <target name="jar" depends="compile">
+      <jar destfile="${dir.build.dist}/${file.jar}">
+         <fileset dir="${dir.build.bin}" includes="**/*.class"/>
+         <fileset dir="${dir.build.bin}" includes="**/*.hbm.xml"/>
+         <manifest>
+            <attribute name="Built-By" value="${project.author}"/>
+            <section name="common">
+               <attribute name="Specification-Title" value="${project.fullname}"/>
+               <attribute name="Specification-Version" value="${project.ver}"/>
+               <attribute name="Specification-Vendor" value="${project.org}"/>
+               <attribute name="Implementation-Title" value="${project.fullname}"/>
+               <attribute name="Implementation-Version" value="${project.ver} build ${DSTAMP}"/> 
+               <attribute name="Implementation-Vendor" value="${project.org}"/>
+            </section>
+         </manifest>
+      </jar>
+   </target>
+
+   <target name="zip" depends="jar">
+      <copy todir="${dir.build.zip}">
+         <fileset dir="${dir.src.resource}"/>
+      </copy>
+      <copy todir="${dir.build.zip}/${dir.lib}">
+         <fileset dir="${dir.build.dist}">
+           <include name="*.jar"/>
+         </fileset>
+         <fileset dir="${dir.lib}">
+            <include name="*.jar"/>
+         </fileset>
+      </copy>
+      <zip destfile="${dir.build.dist}/${file.zip}">
+         <fileset dir="${dir.build.zip}">
+            <include name="**/**"/>
+         </fileset>
+      </zip>
+      <delete dir="${dir.build.zip}"/>
+   </target>
+
+</project>
