@@ -2,10 +2,10 @@
   <library name="org.apache.ftpserver:ftpserver-core:1.0.6" type="repository">
     <properties maven-id="org.apache.ftpserver:ftpserver-core:1.0.6" />
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/lib/lib.ftp/ftpserver-core-1.0.6.jar!/" />
-      <root url="jar://$PROJECT_DIR$/lib/lib.ftp/ftplet-api-1.0.6.jar!/" />
-      <root url="jar://$PROJECT_DIR$/lib/lib.ftp/slf4j-api-1.5.2.jar!/" />
-      <root url="jar://$PROJECT_DIR$/lib/lib.ftp/mina-core-2.0.4.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/lib.ftpserver.106/ftpserver-core-1.0.6.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/lib.ftpserver.106/ftplet-api-1.0.6.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/lib.ftpserver.106/slf4j-api-1.5.2.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/lib.ftpserver.106/mina-core-2.0.4.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />
