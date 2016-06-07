@@ -4,9 +4,9 @@
 JAVA_OPTS=""
 CLASS="org.apache.hadoop.contrib.ftp.HdfsOverFtpServer"
 JAVA_CMD="$JAVA_HOME/jre/bin/java"
-OUT_LOG="/var/log/hdfs-over-ftp/hdfs-over-ftp.out"
+OUT_LOG="hdfs-over-ftp.out"
 
-pid=/var/run/hdfs-over-ftp/hdfs-over-ftp.pid
+pid=/tmp/hdfs-over-ftp.pid
 
 command="hdfs-over-ftp"
 usage="Usage: hdfs-over-ftp.sh (start|stop)"
@@ -19,7 +19,7 @@ case $cmd in
     if [ -f $pid ]; then
         echo stopping $command
         kill `cat $pid`
-        rm $pid
+    	rm $pid
       else
         echo no $command to stop
       fi

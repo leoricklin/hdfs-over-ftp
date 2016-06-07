@@ -11,14 +11,14 @@
    <property name="project.org" value="CHTTL" />
    <property name="dir.root" value="." />
    <property name="dir.lib" value="lib" />
-   <property name="dir.lib.cdh" value="${dir.lib}/lib.cdh430" />
+   <property name="dir.lib.cdh" value="${dir.lib}/lib.cdh4" />
+   <property name="dir.resource" value="resource" />
+   <property name="dir.script" value="script" />
    <property name="dir.src" value="src" />
-   <property name="dir.src.resource" value="${dir.src}/main/resources" />
-   <property name="dir.src.java" value="${dir.src}/main/java" />
    <property name="dir.build" value="build" />
    <property name="dir.build.bin" value="${dir.build}/classes" />
    <property name="dir.build.dist" value="${dir.build}/dist" />
-   <property name="dir.build.zip" value="${dir.build}/all4zip" />
+   <property name="dir.build.zip" value="${dir.build}/${project.aliasname}" />
    <property name="file.jar" value="${project.aliasname}-${project.ver}.jar" />
    <property name="file.zip" value="${project.aliasname}-${project.ver}.zip" />
    <!-- Define classpath -->
@@ -45,16 +45,28 @@
   
    <target name="compile" depends="init">
       <copy todir="${dir.build.bin}">
-         <fileset dir="${dir.src.resource}">
+         <fileset dir="${dir.resource}">
             <include name="**/*.xml"/>
             <include name="**/*.properties"/>
          </fileset>
       </copy>
-      <javac srcdir="${dir.src.java}" destdir="${dir.build.bin}">
+      <javac srcdir="${dir.src}" destdir="${dir.build.bin}">
          <classpath refid="classpath.project"/>
       </javac>
    </target>  
 
+   <target name="junit" depends="compile">
+      <junit printsummary="on" fork="false" haltonfailure="true" showoutput="true">
+         <classpath refid="classpath.project"/>
+         <formatter type="brief" usefile="false"/>
+         <batchtest>
+            <fileset dir="${dir.src}">
+               <include name="**/TestUiAPI.java"/>
+            </fileset>
+         </batchtest>
+      </junit>
+   </target>
+  
    <target name="jar" depends="compile">
       <jar destfile="${dir.build.dist}/${file.jar}">
          <fileset dir="${dir.build.bin}" includes="**/*.class"/>
@@ -75,7 +87,7 @@
 
    <target name="zip" depends="jar">
       <copy todir="${dir.build.zip}">
-         <fileset dir="${dir.src.resource}"/>
+         <fileset dir="${dir.resource}"/>
       </copy>
       <copy todir="${dir.build.zip}/${dir.lib}">
          <fileset dir="${dir.build.dist}">
@@ -90,7 +102,6 @@
             <include name="**/**"/>
          </fileset>
       </zip>
-      <delete dir="${dir.build.zip}"/>
    </target>
 
 </project>
