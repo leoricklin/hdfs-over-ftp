@@ -6,15 +6,16 @@
    <!-- Set global properties -->
    <property name="project.fullname" value="HDFS over FTP" />
    <property name="project.aliasname" value="hdfs-over-ftp-cht-dist" />
-   <property name="project.ver" value="4.3.0" />
+   <property name="project.ver" value="5.3.0" />
    <property name="project.author" value="" />
    <property name="project.org" value="CHTTL" />
    <property name="dir.root" value="." />
    <property name="dir.lib" value="lib" />
-   <property name="dir.lib.cdh" value="${dir.lib}/lib.cdh430" />
+   <property name="dir.lib.ftp" value="${dir.lib}/lib.ftp" />
+   <property name="dir.lib.cdh" value="${dir.lib}/lib.hadoop-client.250" />
    <property name="dir.src" value="src" />
-   <property name="dir.src.resource" value="${dir.src}/main/resources" />
-   <property name="dir.src.java" value="${dir.src}/main/java" />
+   <property name="dir.src.resource" value="resources" />
+   <property name="dir.src.java" value="${dir.src}" />
    <property name="dir.build" value="build" />
    <property name="dir.build.bin" value="${dir.build}/classes" />
    <property name="dir.build.dist" value="${dir.build}/dist" />
@@ -24,7 +25,7 @@
    <!-- Define classpath -->
    <path id="classpath.project">
       <pathelement path="${dir.build.bin}"/>
-      <fileset dir="${dir.lib}">
+      <fileset dir="${dir.lib.ftp}">
          <include name="**/*.jar"/>
       </fileset>
       <fileset dir="${dir.lib.cdh}">
@@ -58,7 +59,6 @@
    <target name="jar" depends="compile">
       <jar destfile="${dir.build.dist}/${file.jar}">
          <fileset dir="${dir.build.bin}" includes="**/*.class"/>
-         <fileset dir="${dir.build.bin}" includes="**/*.hbm.xml"/>
          <manifest>
             <attribute name="Built-By" value="${project.author}"/>
             <section name="common">
@@ -81,7 +81,7 @@
          <fileset dir="${dir.build.dist}">
            <include name="*.jar"/>
          </fileset>
-         <fileset dir="${dir.lib}">
+         <fileset dir="${dir.lib.ftp}">
             <include name="*.jar"/>
          </fileset>
       </copy>
