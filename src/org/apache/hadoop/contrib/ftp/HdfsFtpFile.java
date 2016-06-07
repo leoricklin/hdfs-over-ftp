@@ -2,7 +2,11 @@ package org.apache.hadoop.contrib.ftp;
 
 import org.apache.ftpserver.ftplet.FtpFile;
 import org.apache.ftpserver.ftplet.User;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -12,6 +16,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.List;
 
@@ -42,6 +47,9 @@ public class HdfsFtpFile implements FtpFile {
        this.dfs = dfs;
     }
 
+    /**
+     * 20160607, leo: using proxyuser
+     */
     public HdfsFtpFile(String path, User user, FileSystem dfs, UserGroupInformation proxyUgi) {
         this(path, user, dfs);
         this.proxyUgi = proxyUgi;
@@ -60,14 +68,6 @@ public class HdfsFtpFile implements FtpFile {
     public String getName() {
        log.debug("path[" + this.path.getName() + "]");
        return this.path.getName();
-       /*
-       String full = getAbsolutePath();
-       int pos = full.lastIndexOf("/");
-       if (full.length() == 1) {
-           return "/";
-       }
-       return full.substring(pos + 1);
-       */
     }
 
     /**
@@ -84,11 +84,6 @@ public class HdfsFtpFile implements FtpFile {
      */
     public boolean isDirectory() {
         try {
-/* v2.0.0, 2013/07/08, leo, replace with hadoop 2.0.0 API
-            FileStatus staus = dfs.getFileStatus(path);
-            log.debug("path[" + this.getName() + " isDirectory[" + staus.isDir() + "]");
-            return staus.isDir();
-*/
            log.debug("path[" + this.getName() + " isDirectory[" + dfs.isDirectory(path) + "]");
            return dfs.isDirectory(path);
         } catch (IOException e) {
@@ -103,11 +98,10 @@ public class HdfsFtpFile implements FtpFile {
      * @throws IOException if path doesn't exist so we get permissions of parent object in that case
      */
     private FsPermission getPermissions() throws IOException {
-       return dfs.getFileStatus(path).getPermission();
+       return dfs.getFileStatus(this.path).getPermission();
     }
     /**
      * Checks if the object is a file
-     *
      * @return true if the object is a file
      */
     public boolean isFile() {
@@ -122,20 +116,16 @@ public class HdfsFtpFile implements FtpFile {
 
     /**
      * Checks if the object does exist
-     *
      * @return true if the object does exist
-     * v0.20.2, 2011/07/18, leo, using exists() to check if exists. 
+     * v0.20.2, 2011/07/18, leo, using exists() to check if exists.
+     * 20160607, leo
      */
    public boolean doesExist() {
       try {
-         log.debug("path[" + this.getName() + " doesExist[" + dfs.exists(path) + "]");
+         log.debug("path[" + this.getName() + " doesExist [" + dfs.exists(path) + "]");
          return dfs.exists(path);
-         // dfs.getFileStatus(path);
-         // return true;
-      } catch (FileNotFoundException e){
-          return false;
-      } catch (IOException e) {
-          log.debug("IOException has been thrown while trying read from " + path);
+      } catch (Exception e) {
+          log.error(path + " doesExist error", e);
           return false;
       }
    }
@@ -155,40 +145,16 @@ public class HdfsFtpFile implements FtpFile {
             // check owner's permission
             action = permissions.getUserAction(); 
             log.debug("path[" + this.getName() + " owner action[" + action.toString() + "]");
-            /*
-             if (permissions.toString().substring(0, 1).equals("r")) {
-                 log.debug("PERMISSIONS: " + path + " - " + " read allowed for user");
-                 return true;
-             }
-            */
-//         } else if (user.isGroupMember(getGroupName())) {
-//             if (permissions.toString().substring(3, 4).equals("r")) {
-//                 log.debug("PERMISSIONS: " + path + " - " + " read allowed for group");
-//                 return true;
-//             }
          } else {
             // check other's permission
             action = permissions.getOtherAction();
             log.debug("path[" + this.getName() + " other action[" + action.toString() + "]");
-            /*
-             if (permissions.toString().substring(6, 7).equals("r")) {
-                 log.debug("PERMISSIONS: " + path + " - " + " read allowed for others");
-                 return true;
-             }
-            */
          }
-         /*
-         if (action.equals(FsAction.READ) || action.equals(FsAction.READ_WRITE) 
-               || action.equals(FsAction.READ_EXECUTE) || action.equals(FsAction.ALL)) {
-            log.debug("PERMISSIONS: " + path + " - " + " read allowed for user");
-            return true;
-         }            
-         */
          if (action.implies(FsAction.READ)) {
-            log.debug("PERMISSIONS: " + path + " - " + " read allowed for user");
+            log.debug("PERMISSIONS: " + path + " - " + " read allowed for " + user.getName());
             return true;
          } else {
-            log.warn("PERMISSIONS: " + path + " - " + " read denied");
+            log.warn("PERMISSIONS: " + path + " - " + " read denied for " + user.getName());
             return false;
          }
       } catch (IOException e) {
@@ -202,13 +168,6 @@ public class HdfsFtpFile implements FtpFile {
      */
    private HdfsFtpFile getParent() {
       String parentS = "/";
-      /*
-      String pathS = path.toString();
-      int pos = pathS.lastIndexOf("/");
-      if (pos > 0) {
-          parentS = pathS.substring(0, pos);
-      }
-      */
       Path ppath = this.path.getParent();
       if (ppath != null) {
          parentS = ppath.toString();
@@ -229,27 +188,10 @@ public class HdfsFtpFile implements FtpFile {
             // check owner's permission
             action = permissions.getUserAction(); 
             log.debug("path[" + this.getName() + " owner action[" + action.toString() + "]");
-            /*
-            if (permissions.toString().substring(1, 2).equals("w")) {
-               log.debug("PERMISSIONS: " + path + " - " + " write allowed for user");
-               return true;
-            }
-            */
-//       } else if (user.isGroupMember(getGroupName())) {
-//          if (permissions.toString().substring(4, 5).equals("w")) {
-//             log.debug("PERMISSIONS: " + path + " - " + " write allowed for group");
-//             return true;
-//          }
          } else {
             // check other's permission
             action = permissions.getOtherAction();
             log.debug("path[" + this.getName() + " other action[" + action.toString() + "]");
-            /*
-            if (permissions.toString().substring(7, 8).equals("w")) {
-               log.debug("PERMISSIONS: " + path + " - " + " write allowed for others");
-               return true;
-            }
-            */
          }
          if (action.implies(FsAction.WRITE)) {
             log.debug("PERMISSIONS: " + path + " - " + " write allowed for " + user.getName());
@@ -258,10 +200,6 @@ public class HdfsFtpFile implements FtpFile {
             log.warn("PERMISSIONS: " + path + " - " + " write denied for " + user.getName());
             return false;
          }
-         /*
-         log.debug("PERMISSIONS: " + path + " - " + " write denied");
-         return false;
-         */
       } catch (IOException e) {
          return getParent().isWritable();
       }
@@ -286,7 +224,7 @@ public class HdfsFtpFile implements FtpFile {
          return fs.getOwner();
       } catch (IOException e) {
          e.printStackTrace();
-         return null;
+         return "";
       }
    }
     /**
@@ -301,7 +239,7 @@ public class HdfsFtpFile implements FtpFile {
           return fs.getGroup();
        } catch (IOException e) {
           e.printStackTrace();
-          return null;
+          return "";
        }
     }
    /**
@@ -326,6 +264,9 @@ public class HdfsFtpFile implements FtpFile {
          return 0;
       }
    }
+   /**
+     *
+     */
    public boolean setLastModified(long l) {
       return false;
    }
@@ -347,19 +288,20 @@ public class HdfsFtpFile implements FtpFile {
     * Create a new dir from the object
     * @return true if dir is created
     * v0.20.2, 2011/07/18, Leo: disable dfs.setOwner() due to only HDFS super user could change owner.
+    * 20160607, leo: using proxyuser
     */
    public boolean mkdir() {
-      if (!isWritable()) {
-         log.warn("user " + user.getName() + " has No write permission : " + path);
-         return false;
-      }
+      log.debug("path[" + this.getName() + " mkdir for [" + this.user.getName() + "]");
       try {
-         dfs.mkdirs(path);
-         /* <- 20131113, leo
-          * dfs.setOwner(path, user.getName(), SUPERGROUP); // user.getMainGroup()
-          --> */         
+         proxyUgi.doAs(new PrivilegedExceptionAction<Void>() {
+            @Override
+            public Void run() throws Exception {
+               dfs.mkdirs(path);
+               return null;
+            }
+         });
          return true;
-      } catch (IOException e) {
+      } catch (Exception e) {
          log.error("mkdir error", e);
          return false;
       }
@@ -368,16 +310,20 @@ public class HdfsFtpFile implements FtpFile {
     * Delete object from the HDFS filesystem
     * @return true if the object is deleted
     * v0.20.2, 2011/07/19, Leo: check write permission before delete
+    * 20160607, leo: using proxyuser
     */
    public boolean delete() {
-      if (!isWritable()) {
-         log.warn("user " + user.getName() + " has No write permission : " + path);
-         return false;
-      }
+      log.debug("path[" + this.getName() + " delete for [" + this.user.getName() + "]");
       try {
-         dfs.delete(path, true);
+         proxyUgi.doAs(new PrivilegedExceptionAction<Void>() {
+            @Override
+            public Void run() throws Exception {
+               dfs.delete(path, true); // enable recursive deleting
+               return null;
+            }
+         });
          return true;
-      } catch (IOException e) {
+      } catch (Exception e) {
          log.error("delete error", e);
          return false;
       }
@@ -387,38 +333,48 @@ public class HdfsFtpFile implements FtpFile {
     * @param fileObject location to move the object
     * @return true if the object is moved successfully
     * v0.20.2, 2011/07/19, Leo: check write permission before delete
+    * 20160607, leo: using proxyuser
     */
    public boolean move(FtpFile fileObject) {
-      if (!isWritable()) {
-         log.warn("user " + user.getName() + " has No write permission : " + path);
-         return false;
-      }
+      log.debug("path[" + this.getName() + " move to [" + fileObject.getAbsolutePath() + "] for [" + this.user.getName() + "]");
       try {
-         dfs.rename(path, new Path(fileObject.getAbsolutePath()));
+         final Path dest = new Path(fileObject.getAbsolutePath());
+         proxyUgi.doAs(new PrivilegedExceptionAction<Void>() {
+            @Override
+            public Void run() throws Exception {
+               dfs.rename(path, dest);
+               return null;
+            }
+         });
          return true;
-      } catch (IOException e) {
+      } catch (Exception e) {
          log.error("move error", e);
          return false;
       }
+
    }
    /**
     * List files of the directory
     * @return List of files in the directory
+    * 20160607, leo: using proxyuser
     */
     public List<FtpFile> listFiles() {
-       if (!isReadable()) {
-          log.warn("user " + user.getName() + " has No read permission : " + path);
-          return null;
-       }
+       log.debug("path[" + this.getName() + " list for [" + this.user.getName() + "]");
        try {
-          FileStatus fileStats[] = dfs.listStatus(path);
-          FtpFile fileObjects[] = new FtpFile[fileStats.length];
-          for (int i = 0; i < fileStats.length; i++) {
-             fileObjects[i] = new HdfsFtpFile(fileStats[i].getPath().toString(), user, dfs);
-          }
-          return Arrays.asList(fileObjects);
-       } catch (IOException e) {
-          log.debug("", e);
+          List<FtpFile> files = proxyUgi.doAs(new PrivilegedExceptionAction<List<FtpFile>>() {
+             @Override
+             public List<FtpFile> run() throws Exception {
+                FileStatus[] fileStats = dfs.listStatus(path);
+                FtpFile[] fileObjects = new FtpFile[fileStats.length];
+                for (int i = 0; i < fileStats.length; i++) {
+                   fileObjects[i] = new HdfsFtpFile(fileStats[i].getPath().toString(), user, dfs);
+                }
+                return Arrays.asList(fileObjects);
+             }
+          });
+          return files;
+       } catch (Exception e) {
+          log.error("delete error", e);
           return null;
        }
     }
@@ -429,30 +385,43 @@ public class HdfsFtpFile implements FtpFile {
     * @throws IOException
     * v0.20.2, 2011/07/18, leo: disable dfs.setOwner() due to only HDFS super user could change owner.
     * v0.20.2, 2011/07/21, leo: remove try-catch block
+    * 20160607, leo: using proxyuser
     */
    public OutputStream createOutputStream(long l) throws IOException {
-      log.debug("path[" + this.getName() + "createOutputStream [" + l + "]");
-      if (!isWritable()) {
-         // check permission
-         throw new IOException("user " + user.getName() + " has No write permission : " + path);
-      }
+      log.debug("path[" + this.getName() + "createOutputStream [" + l + "] for [" + this.user.getName() + "]");
       FSDataOutputStream out = null;
       if (this.doesExist()) {
          // resuming
          if (this.getSize() == l) {
             // starting address is same as the EOF
-            out = dfs.append(path);
+            try {
+               out = proxyUgi.doAs(new PrivilegedExceptionAction<FSDataOutputStream>() {
+                  @Override
+                  public FSDataOutputStream run() throws Exception {
+                     return dfs.append(path);
+                  }
+               });
+            } catch (Exception e) {
+               log.error("createOutputStream error", e);
+               throw new IOException(e);
+            }
          } else {
             throw new IOException("resuming offset is wrong");
          }
       } else {
          // new file
-         out = dfs.create(path);
+         try {
+            out = proxyUgi.doAs(new PrivilegedExceptionAction<FSDataOutputStream>() {
+               @Override
+               public FSDataOutputStream run() throws Exception {
+                  return dfs.create(path);
+               }
+            });
+         } catch (Exception e) {
+            log.error("createOutputStream error", e);
+            throw new IOException(e);
+         }
       }
-      /* <- 20131113, leo
-       * dfs.setOwner(path, user.getName(), SUPERGROUP); // user.getMainGroup()
-      --> */
-      dfs.setPermission(this.path, new FsPermission(FsAction.ALL, FsAction.ALL, FsAction.ALL));
       return out;
    }
    /**
@@ -464,18 +433,26 @@ public class HdfsFtpFile implements FtpFile {
     * v0.20.2, 2011/07/20, leo: check offset against the size of file
     * v0.20.2, 2011/07/21, leo: remove try-catch block
     * v0.20.2, 2011/07/22, leo: add in.seek(l)
+    * 20160607, leo: using proxyuser
     */
    public InputStream createInputStream(long l) throws IOException {
-      log.debug("path[" + this.getName() + "createInputStream [" + l + "]");
-      // permission check
-      if (!isReadable()) {
-         throw new IOException("user " + user.getName() + " has No read permission : " + path);
-      }
+      log.debug("path[" + this.getName() + "createInputStream [" + l + "] for [" + this.user.getName() + "]");
+      FSDataInputStream in = null;
       if (l >= this.getSize() ) {
          throw new IOException("offset " + l + " over the size of " + path);
       }
-      FSDataInputStream in = dfs.open(path);
-      in.seek(l);
-      return in;
+      try {
+         in = proxyUgi.doAs(new PrivilegedExceptionAction<FSDataInputStream>() {
+            @Override
+            public FSDataInputStream run() throws Exception {
+               return dfs.open(path);
+            }
+         });
+         in.seek(l);
+         return in;
+      } catch (Exception e) {
+         log.error("createOutputStream error", e);
+         throw new IOException(e);
+      }
    }
 }

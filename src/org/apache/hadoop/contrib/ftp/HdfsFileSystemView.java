@@ -45,7 +45,7 @@ public class HdfsFileSystemView implements FileSystemView {
         try {
             this.proxyUgi = UserGroupInformation.createProxyUser(user.getName(), UserGroupInformation.getLoginUser());
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.error("create proxyuser error", e);
         }
         // ->
     }
@@ -56,7 +56,7 @@ public class HdfsFileSystemView implements FileSystemView {
      */
     public FtpFile getHomeDirectory() {
         // <- 20160607, leo
-        return new HdfsFtpFile(this.getUserHomeDirectory(), user, dfs);
+        return new HdfsFtpFile(this.getUserHomeDirectory(), this.user, this.dfs, this.proxyUgi);
         // ->
     }
 
@@ -71,7 +71,9 @@ public class HdfsFileSystemView implements FileSystemView {
      * Get the current directory.
      */
     public FtpFile getWorkingDirectory() {
-        return new HdfsFtpFile(currDir, user, dfs);
+        // <- 20160607, leo
+        return new HdfsFtpFile(this.currDir, this.user, this.dfs, this.proxyUgi);
+        // ->
     }
 
     /**
